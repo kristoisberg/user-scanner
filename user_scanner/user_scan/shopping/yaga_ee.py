@@ -8,41 +8,14 @@ from user_scanner.core.orchestrator import generic_validate
 from user_scanner.core.result import Result
 
 
-NEXT_DATA_RE = re.compile(
-    r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
-    re.DOTALL,
-)
-UNSAFE_PATH_RE = re.compile(r"[/#?\x00-\x1f\x7f]")
-
-
-def _extract_next_data(response_text: str) -> dict | None:
-    match = NEXT_DATA_RE.search(response_text)
-    if not match:
-        return None
-
-    return json.loads(html.unescape(match.group(1)))
-
-
-def _shop_extra(shop: dict) -> dict:
-    owner = shop.get("owner") or {}
-    extra = {
-        "id": shop.get("id"),
-        "name": shop.get("name"),
-        "description": shop.get("description"),
-        "owner_first_name": owner.get("firstName") or owner.get("first_name"),
-        "owner_last_name": owner.get("lastName") or owner.get("last_name"),
-    }
-    return {key: value for key, value in extra.items() if value}
-
-
-def _validate_yaga(user: str, base_url: str) -> Result:
+def validate_yaga_ee(user: str) -> Result:
     user = user.strip().lower()
-    url = f"{base_url}/{quote(user, safe='')}"
+    url = f"https://www.yaga.ee/{quote(user, safe='')}"
 
     if not user:
         return Result.error("Username cannot be empty", url=url)
 
-    if UNSAFE_PATH_RE.search(user):
+    if re.search(r"[/#?\x00-\x1f\x7f]", user):
         return Result.error("Username contains unsafe URL path characters", url=url)
 
     headers = {
@@ -57,13 +30,18 @@ def _validate_yaga(user: str, base_url: str) -> Result:
                 f"Unexpected response status: {response.status_code}",
             )
 
+        match = re.search(
+            r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
+            response.text,
+            re.DOTALL,
+        )
+        if not match:
+            return Result.error("Could not find Next.js data")
+
         try:
-            data = _extract_next_data(response.text)
+            data = json.loads(html.unescape(match.group(1)))
         except json.JSONDecodeError:
             return Result.error("Could not parse Next.js data")
-
-        if data is None:
-            return Result.error("Could not find Next.js data")
 
         page_props = data.get("props", {}).get("pageProps", {})
         shop = page_props.get("initialShop")
@@ -77,7 +55,20 @@ def _validate_yaga(user: str, base_url: str) -> Result:
         if shop.get("activeSlug") != user:
             return Result.error("Unexpected shop slug")
 
-        return Result.taken(extra=_shop_extra(shop))
+        owner = shop.get("owner") or {}
+        extra = {}
+        if shop.get("id"):
+            extra["id"] = shop.get("id")
+        if shop.get("name"):
+            extra["name"] = shop.get("name")
+        if shop.get("description"):
+            extra["description"] = shop.get("description")
+        if owner.get("firstName") or owner.get("first_name"):
+            extra["owner_first_name"] = owner.get("firstName") or owner.get("first_name")
+        if owner.get("lastName") or owner.get("last_name"):
+            extra["owner_last_name"] = owner.get("lastName") or owner.get("last_name")
+
+        return Result.taken(extra=extra)
 
     return generic_validate(
         url,
@@ -86,7 +77,3 @@ def _validate_yaga(user: str, base_url: str) -> Result:
         show_url=url,
         follow_redirects=True,
     )
-
-
-def validate_yaga_ee(user: str) -> Result:
-    return _validate_yaga(user, "https://www.yaga.ee")
