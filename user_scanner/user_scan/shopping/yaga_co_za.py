@@ -49,24 +49,16 @@ def validate_yaga_co_za(user: str) -> Result:
         if shop is None:
             return Result.available()
 
-        if not isinstance(shop, dict):
-            return Result.error("Unexpected shop data")
-
         if shop.get("activeSlug") != user:
             return Result.error("Unexpected shop slug")
 
-        owner = shop.get("owner") or {}
         extra = {}
-        if shop.get("id"):
-            extra["id"] = shop.get("id")
-        if shop.get("name"):
-            extra["name"] = shop.get("name")
-        if shop.get("description"):
-            extra["description"] = shop.get("description")
-        if owner.get("firstName") or owner.get("first_name"):
-            extra["owner_first_name"] = owner.get("firstName") or owner.get("first_name")
-        if owner.get("lastName") or owner.get("last_name"):
-            extra["owner_last_name"] = owner.get("lastName") or owner.get("last_name")
+        owner = shop.get("owner") or {}
+        if shop_id := shop.get("id"): extra["id"] = shop_id
+        if name := shop.get("name"): extra["name"] = name
+        if description := shop.get("description"): extra["description"] = description
+        if first_name := owner.get("firstName"): extra["owner_first_name"] = first_name
+        if last_name := owner.get("lastName"): extra["owner_last_name"] = last_name
 
         return Result.taken(extra=extra)
 

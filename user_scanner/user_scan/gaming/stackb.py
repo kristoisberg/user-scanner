@@ -40,11 +40,7 @@ def validate_stackb(user: str) -> Result:
             return Result.error(f"Unexpected response status: {response.status_code}")
 
         profile = {}
-        for json_match in re.finditer(
-            r'<script type="application/ld\+json">(.*?)</script>',
-            response_text,
-            re.DOTALL,
-        ):
+        for json_match in re.finditer(r'<script type="application/ld\+json">(.*?)</script>', response_text, re.DOTALL):
             try:
                 data = json.loads(html.unescape(json_match.group(1)))
             except json.JSONDecodeError:
@@ -56,59 +52,23 @@ def validate_stackb(user: str) -> Result:
                     profile = entity
                 break
 
-        og_type_match = re.search(
-            r'<meta\s+[^>]*property=["\']og:type["\'][^>]*content=["\']([^"\']*)',
-            response_text,
-            re.IGNORECASE,
-        )
+        og_type_match = re.search(r'<meta [^>]*property=["\']og:type["\'][^>]*content=["\']([^"\']*)', response_text, re.IGNORECASE)
         og_type = html.unescape(og_type_match.group(1)).strip() if og_type_match else None
 
-        canonical_match = re.search(
-            r'<link\s+[^>]*rel=["\']canonical["\'][^>]*href=["\']([^"\']*)',
-            response_text,
-            re.IGNORECASE,
-        )
-        canonical_url = (
-            html.unescape(canonical_match.group(1)).strip()
-            if canonical_match
-            else None
-        )
-
-        og_url_match = re.search(
-            r'<meta\s+[^>]*property=["\']og:url["\'][^>]*content=["\']([^"\']*)',
-            response_text,
-            re.IGNORECASE,
-        )
-        og_url = html.unescape(og_url_match.group(1)).strip() if og_url_match else None
-
-        profile_urls = {canonical_url, og_url, profile.get("url")}
-        has_profile_url = url in profile_urls or profile_url in profile_urls
-        has_profile_identifier = profile.get("identifier") == f"@{user}"
-        has_profile_component = 'name&quot;:&quot;profile&quot;' in response_text
+        canonical_match = re.search(r'<link [^>]*rel=["\']canonical["\'][^>]*href=["\']([^"\']*)', response_text, re.IGNORECASE)
+        canonical_url = html.unescape(canonical_match.group(1)).strip() if canonical_match else None
 
         if (
             og_type == "profile"
-            and has_profile_url
-            and (has_profile_identifier or has_profile_component)
+            and canonical_url == profile_url
+            and profile.get("identifier") == f"@{user}"
         ):
             extra = {}
-            title_match = re.search(
-                r'<meta\s+[^>]*property=["\']og:title["\'][^>]*content=["\']([^"\']*)',
-                response_text,
-                re.IGNORECASE,
-            )
+            title_match = re.search(r'<meta [^>]*property=["\']og:title["\'][^>]*content=["\']([^"\']*)', response_text, re.IGNORECASE)
             title = html.unescape(title_match.group(1)).strip() if title_match else ""
 
-            description_match = re.search(
-                r'<meta\s+[^>]*property=["\']og:description["\'][^>]*content=["\']([^"\']*)',
-                response_text,
-                re.IGNORECASE,
-            )
-            description = (
-                html.unescape(description_match.group(1)).strip()
-                if description_match
-                else None
-            )
+            description_match = re.search(r'<meta [^>]*property=["\']og:description["\'][^>]*content=["\']([^"\']*)', response_text, re.IGNORECASE)
+            description = html.unescape(description_match.group(1)).strip() if description_match else None
             if isinstance(profile.get("description"), str):
                 description = profile.get("description")
 
@@ -116,38 +76,24 @@ def validate_stackb(user: str) -> Result:
             if not isinstance(display_name, str):
                 display_name = title.split(" (@", 1)[0] if " (@" in title else None
 
-            if display_name:
-                extra["display_name"] = display_name
-            if description:
-                extra["bio"] = description
-            if profile.get("image"):
-                extra["avatar"] = profile.get("image")
-            else:
-                image_match = re.search(
-                    r'<meta\s+[^>]*property=["\']og:image["\'][^>]*content=["\']([^"\']*)',
-                    response_text,
-                    re.IGNORECASE,
-                )
-                if image_match:
-                    extra["avatar"] = html.unescape(image_match.group(1)).strip()
+            if display_name: extra["display_name"] = display_name
+            if description: extra["bio"] = description
+            if image := profile.get("image"):
+                extra["avatar"] = image
+            elif image_match := re.search(
+                r'<meta [^>]*property=["\']og:image["\'][^>]*content=["\']([^"\']*)', response_text, re.IGNORECASE
+            ):
+                extra["avatar"] = html.unescape(image_match.group(1)).strip()
 
-            stats_text = (
-                html.unescape(description_match.group(1)).strip()
-                if description_match
-                else description
-            )
+            stats_text = html.unescape(description_match.group(1)).strip() if description_match else description
             if stats_text:
-                rank_match = re.search(r"Ранг:\s*([^\.]+)", stats_text)
-                if rank_match:
+                if rank_match := re.search(r"Ранг:\s*([^\.]+)", stats_text):
                     extra["rank"] = rank_match.group(1).strip()
-
-                followers_match = re.search(r"Подписчики:\s*(\d+)", stats_text)
-                if followers_match:
+                if followers_match := re.search(r"Подписчики:\s*(\d+)", stats_text):
                     extra["followers"] = int(followers_match.group(1))
 
             if "followers" not in extra:
-                followers_match = re.search(r"(\d+)\s*Подписчиков", response_text)
-                if followers_match:
+                if followers_match := re.search(r"(\d+)\s*Подписчиков", response_text):
                     extra["followers"] = int(followers_match.group(1))
 
             extra["profile_url"] = profile.get("url") or profile_url
