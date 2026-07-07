@@ -9,7 +9,7 @@ from user_scanner.core.result import Result
 
 
 def validate_stackb(user: str) -> Result:
-    user = user.strip().lower()
+    user = user.lower()
     profile_url = f"https://stackb.net/@{user}"
     url = f"https://stackb.net/@{quote(user, safe='')}"
 

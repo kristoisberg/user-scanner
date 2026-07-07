@@ -9,7 +9,7 @@ from user_scanner.core.result import Result
 
 
 def validate_yaga_ee(user: str) -> Result:
-    user = user.strip().lower()
+    user = user.lower()
     url = f"https://www.yaga.ee/{quote(user, safe='')}"
 
     headers = {
