@@ -6,13 +6,10 @@ from user_scanner.core.orchestrator import generic_validate
 from user_scanner.core.result import Result
 
 
-USERNAME_RE = re.compile(r"^[a-z0-9_@]+$", re.IGNORECASE)
-
-
 def validate_pedsovet(user: str) -> Result:
     url = f"https://pedsovet.su/index/8-0-{user}"
 
-    if not USERNAME_RE.match(user):
+    if not re.match(r"^[a-z0-9_@]+$", user, re.IGNORECASE):
         return Result.error(
             "Usernames can only contain letters, numbers, underscores and at signs",
             url=url,
