@@ -56,39 +56,20 @@ def validate_stackb(user: str) -> Result:
             and profile.get("identifier") == f"@{user}"
         ):
             extra = {}
-            title_match = re.search(r'<meta [^>]*property=["\']og:title["\'][^>]*content=["\']([^"\']*)', response_text, re.IGNORECASE)
-            title = html.unescape(title_match.group(1)).strip() if title_match else ""
-
             description_match = re.search(r'<meta [^>]*property=["\']og:description["\'][^>]*content=["\']([^"\']*)', response_text, re.IGNORECASE)
-            description = html.unescape(description_match.group(1)).strip() if description_match else None
-            if isinstance(profile.get("description"), str):
-                description = profile.get("description")
+            stats_text = html.unescape(description_match.group(1)).strip() if description_match else None
 
-            display_name = profile.get("name")
-            if not isinstance(display_name, str):
-                display_name = title.split(" (@", 1)[0] if " (@" in title else None
+            if name := profile.get("name"): extra["display_name"] = name
+            if description := profile.get("description"): extra["bio"] = description
+            if image := profile.get("image"): extra["avatar"] = image
 
-            if display_name: extra["display_name"] = display_name
-            if description: extra["bio"] = description
-            if image := profile.get("image"):
-                extra["avatar"] = image
-            elif image_match := re.search(
-                r'<meta [^>]*property=["\']og:image["\'][^>]*content=["\']([^"\']*)', response_text, re.IGNORECASE
-            ):
-                extra["avatar"] = html.unescape(image_match.group(1)).strip()
-
-            stats_text = html.unescape(description_match.group(1)).strip() if description_match else description
             if stats_text:
                 if rank_match := re.search(r"Ранг:\s*([^\.]+)", stats_text):
                     extra["rank"] = rank_match.group(1).strip()
                 if followers_match := re.search(r"Подписчики:\s*(\d+)", stats_text):
                     extra["followers"] = int(followers_match.group(1))
 
-            if "followers" not in extra:
-                if followers_match := re.search(r"(\d+)\s*Подписчиков", response_text):
-                    extra["followers"] = int(followers_match.group(1))
-
-            extra["profile_url"] = profile.get("url") or profile_url
+            extra["profile_url"] = profile_url
             return Result.taken(extra=extra)
 
         return Result.error("Unexpected response body")

@@ -36,8 +36,6 @@ def validate_pedsovet(user: str) -> Result:
         if (
             found_login
             and found_login.lower() == user.lower()
-            and "Группа пользователей:" in response_text
-            and "Регистрация:" in response_text
             and "Ссылка на профиль:" in response_text
         ):
             extra = {"login": found_login}
