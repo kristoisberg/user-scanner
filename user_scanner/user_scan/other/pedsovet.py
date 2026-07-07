@@ -13,9 +13,6 @@ def validate_pedsovet(user: str) -> Result:
     user = user.strip()
     url = f"https://pedsovet.su/index/8-0-{user}"
 
-    if not user:
-        return Result.error("Username cannot be empty", url=url)
-
     if not USERNAME_RE.match(user):
         return Result.error(
             "Usernames can only contain letters, numbers, underscores and at signs",

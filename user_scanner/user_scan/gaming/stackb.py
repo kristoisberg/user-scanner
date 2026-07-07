@@ -10,16 +10,8 @@ from user_scanner.core.result import Result
 
 def validate_stackb(user: str) -> Result:
     user = user.strip().lower()
-    if user.startswith("@"):
-        user = user[1:]
     profile_url = f"https://stackb.net/@{user}"
     url = f"https://stackb.net/@{quote(user, safe='')}"
-
-    if not user:
-        return Result.error("Username cannot be empty", url=url)
-
-    if re.search(r"[/#?\x00-\x1f\x7f]", user):
-        return Result.error("Username contains unsafe URL path characters", url=url)
 
     headers = {
         "User-Agent": get_random_user_agent(),

@@ -12,12 +12,6 @@ def validate_yaga_ee(user: str) -> Result:
     user = user.strip().lower()
     url = f"https://www.yaga.ee/{quote(user, safe='')}"
 
-    if not user:
-        return Result.error("Username cannot be empty", url=url)
-
-    if re.search(r"[/#?\x00-\x1f\x7f]", user):
-        return Result.error("Username contains unsafe URL path characters", url=url)
-
     headers = {
         "User-Agent": get_random_user_agent(),
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
