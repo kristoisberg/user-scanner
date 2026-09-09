@@ -20,7 +20,10 @@ IMAGE_RE = re.compile(
     r'class="channel-header--(img|backsplash-img)"[^>]+src="([^"]+)"',
     re.IGNORECASE,
 )
-NOT_FOUND_MARKER = "<title>404 Not found</title>"
+NOT_FOUND_MARKERS = {
+    404: "<title>404 Not found</title>",
+    410: "<title>410 Gone</title>",
+}
 SOCIAL_RE = re.compile(r'<a href="([^"]+)" class="channel-subheader--socials-item"')
 STAT_RE = re.compile(r"([\d,]+)\s+(views|videos)\s*</p>", re.IGNORECASE)
 VERIFIED_RE = re.compile(r'<svg class="channel-header--verified\b')
@@ -31,19 +34,23 @@ def validate_rumble(user: str) -> Result:
     url = f"https://rumble.com/user/{quote(user, safe='')}"
 
     def process(response):
-        if response.status_code == 404 and NOT_FOUND_MARKER in response.text:
+        marker = NOT_FOUND_MARKERS.get(response.status_code)
+        if marker and marker in response.text:
             return Result.available()
 
         if response.status_code != 200:
             return Result.error(f"Unexpected response status: {response.status_code}")
 
         canonical = CANONICAL_RE.search(response.text)
-        if not canonical or canonical.group(1).casefold() != url.casefold():
-            return Result.error("Canonical URL does not match the requested Rumble user")
+        creator_id = re.search(r'"creator_id":\s*"(\d+)"', response.text)
+        if (
+            not canonical
+            or canonical.group(1).casefold() != str(response.url).casefold()
+            or not creator_id
+        ):
+            return Result.error("Rumble user markers do not match the response")
 
-        extra = {}
-        if creator_id := re.search(r'"creator_id":\s*"(\d+)"', response.text):
-            extra["creator_id"] = creator_id.group(1)
+        extra = {"creator_id": creator_id.group(1)}
 
         profile = {}
         profile_start = re.search(
