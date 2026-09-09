@@ -56,6 +56,7 @@ LOUD_MODULES: Dict[str, List[str]] = {
         "cambly",
         "superlive",
         "medium",
+        "payhip",
     ],
 }
 
@@ -356,4 +357,3 @@ def save_config_value(key: str, value: Any, path: str | Path | None = None):
     content[key] = value
     cp.parent.mkdir(parents=True, exist_ok=True)
     cp.write_text(json.dumps(content, indent=2))
-
